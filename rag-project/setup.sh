@@ -1,9 +1,13 @@
+pip install uv && uv pip install chromadb sentence-transformers openai flask
+echo "READY" > /root/rag-setup-complete.txt
+
+
 #!/bin/bash
 
 set -e
 
 echo "============================================"
-echo "🔍 Vector Databases - Lab Setup"
+echo "🔍 RAG - Lab Setup"
 echo "============================================"
 echo ""
 echo "Setting up your super simple environment..."
@@ -70,24 +74,27 @@ fi
 echo ""
 echo "5. Installing Python packages..."
 echo "   - numpy (for vector math)"
-echo "   - chromadb (latest version for production vector database)"
+echo "   - requests (for API calls)"
 echo "   - sentence-transformers (for real AI embeddings)"
+echo "   - flask"
+echo "   - chromadb (for vector database)"
+echo "   - ollama (for LLM interactions)" 
+echo "   - Building educational concepts with production tools"
 
 if [ -z "$USE_PIP" ]; then
     # Use UV for faster installation
     echo "   Using UV for fast package installation..."
-    uv pip install --upgrade numpy chromadb sentence-transformers
-    
+    uv pip install --upgrade numpy requests sentence-transformers flask ollama chromadb
     if [ $? -eq 0 ]; then
         print_status "All packages installed successfully with UV"
     else
         print_warning "UV installation failed, retrying with pip..."
-        pip install --quiet --upgrade numpy chromadb sentence-transformers
+        pip install --quiet --upgrade numpy requests sentence-transformers flask ollama chromadb
         print_status "All packages installed successfully with pip"
     fi
 else
     # Fallback to pip
-    pip install --quiet --upgrade numpy chromadb sentence-transformers
+    pip install --quiet --upgrade numpy requests sentence-transformers flask ollama chromadb
     print_status "All packages installed successfully with pip"
 fi
 
