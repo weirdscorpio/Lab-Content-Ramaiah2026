@@ -1,5 +1,5 @@
 """
-Document Processor - Handles chunking and processing of TechCorp documents
+Document Processor - Handles chunking and processing of RAG documents
 """
 
 import os
@@ -18,7 +18,7 @@ class DocumentProcessor:
         self.chunk_overlap = 100  # characters
         
     def process_all_documents(self) -> Dict[str, int]:
-        """Process all documents in the TechCorp docs folder"""
+        """Process all documents in the RAG docs folder"""
         processed_count = 0
         chunk_count = 0
         

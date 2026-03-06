@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-TechCorp AI Assistant - Interactive RAG Chat Interface
+RAG AI Assistant - Interactive RAG Chat Interface
 """
 
 from flask import Flask, render_template, request, jsonify, Response, stream_with_context

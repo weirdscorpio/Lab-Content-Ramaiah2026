@@ -136,7 +136,7 @@ Context from relevant documents will be provided with each query."""
     
     def _create_augmented_prompt(self, query: str, context: str) -> str:
         """Create the augmented prompt with query and context"""
-        return f"""Based on the following context from TechCorp documents, please answer the user's question.
+        return f"""Based on the following context from RAG documents, please answer the user's question.
 
 CONTEXT:
 {context}
@@ -158,10 +158,10 @@ Please provide a helpful and accurate answer based on the context provided. If t
     def _create_fallback_response(self, _query: str, documents: List[Dict[str, Any]]) -> str:
         """Create a fallback response when LLM is unavailable"""
         if not documents:
-            return "I couldn't find any relevant information about your question in the TechCorp knowledge base."
+            return "I couldn't find any relevant information about your question in the RAG knowledge base."
         
         # Improved fallback response with better formatting
-        response = "Based on the TechCorp documents, here's the relevant information:\n\n"
+        response = "Based on the RAG documents, here's the relevant information:\n\n"
         
         # Get the most relevant document
         top_doc = documents[0]
