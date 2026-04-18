@@ -9,7 +9,6 @@ __pycache__/
 *.sqlite3
 
 # Lab completion markers
-*.txt
 setup-complete.txt
 
 # ChromaDB persistence
@@ -34,3 +33,4 @@ test_output/
 *.log
 
 *FastAPI
+

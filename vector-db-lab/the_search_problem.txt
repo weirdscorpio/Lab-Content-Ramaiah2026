@@ -1,0 +1,4 @@
+Database: company_handbook.db created
+Success Rate: 33% (1/3 queries)
+Failure Rate: 67% (2/3 queries)
+Key Learning: SQL LIKE only matches exact words, not meaning
