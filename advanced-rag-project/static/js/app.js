@@ -131,6 +131,50 @@ function showTrace(steps) {
   traceBar.classList.remove('hidden');
 }
 
+/* ── Pipeline details panel ───────────────────────────────────────────────── */
+function renderPipelineDetails(details, bubble) {
+  const { hyde_document, expanded_queries, rrf_results } = details;
+
+  const maxScore = rrf_results?.length
+    ? Math.max(...rrf_results.map(r => r.rrf_score))
+    : 1;
+
+  const rrfRows = (rrf_results || []).map(r => {
+    const pct  = maxScore > 0 ? (r.rrf_score / maxScore) * 100 : 0;
+    const cls  = r.modality === 'image' ? 'rrf-img' : 'rrf-text';
+    const lbl  = r.modality === 'image' ? 'IMG' : 'TXT';
+    return `<div class="rrf-row">
+      <span class="rrf-modality ${cls}">${lbl}</span>
+      <span class="rrf-title" title="${escHtml(r.file)}">${escHtml(r.title || r.file)}</span>
+      <div class="rrf-bar-wrap"><div class="rrf-bar" style="width:${pct.toFixed(1)}%"></div></div>
+      <span class="rrf-score">${r.rrf_score}</span>
+    </div>`;
+  }).join('');
+
+  const queryItems = (expanded_queries || []).map((q, i) =>
+    `<li class="${i === 0 ? 'pd-q-original' : ''}">${escHtml(q)}</li>`
+  ).join('');
+
+  const el = document.createElement('details');
+  el.className = 'pipeline-details';
+  el.innerHTML = `
+    <summary>Pipeline Details</summary>
+    <div class="pd-section">
+      <div class="pd-label">HyDE Document</div>
+      <div class="pd-hyde-text">${escHtml(hyde_document || '—')}</div>
+    </div>
+    <div class="pd-section">
+      <div class="pd-label">Expanded Queries (${(expanded_queries || []).length})</div>
+      <ol class="pd-queries">${queryItems}</ol>
+    </div>
+    <div class="pd-section">
+      <div class="pd-label">RRF Scores</div>
+      <div class="pd-rrf-table">${rrfRows || '<span class="pd-empty">No results</span>'}</div>
+    </div>`;
+  bubble.appendChild(el);
+  messages.scrollTop = messages.scrollHeight;
+}
+
 /* ── Send message ─────────────────────────────────────────────────────────── */
 async function send() {
   const query = queryInput.value.trim();
@@ -157,6 +201,7 @@ async function send() {
     let   tokenBuf  = '';
     let   firstTok  = true;
     let   sources   = null;
+    let   pendingDetails = null;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -172,6 +217,10 @@ async function send() {
         const line = raw.trim();
         if (!line.startsWith('data:')) continue;
         const payload = JSON.parse(line.slice(5).trim());
+
+        if (payload.type === 'pipeline_details') {
+          pendingDetails = payload;
+        }
 
         if (payload.type === 'trace') {
           showTrace(payload.steps);
@@ -195,6 +244,7 @@ async function send() {
 
         if (payload.type === 'done') {
           if (sources) renderSources(sources, asBubble);
+          if (pendingDetails) renderPipelineDetails(pendingDetails, asBubble);
         }
       }
     }

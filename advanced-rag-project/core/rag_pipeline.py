@@ -353,10 +353,26 @@ class AdvancedRAGPipeline:
             "pipeline_trace": [],
         }
         result = self.graph.invoke(initial)
+
+        all_retrieved = result["text_results"] + result["image_results"]
+        all_retrieved.sort(key=lambda x: x.get("rrf_score", 0), reverse=True)
+        rrf_results = [
+            {
+                "title": doc["metadata"].get("title") or doc["metadata"].get("file_name", ""),
+                "file": doc["metadata"].get("file_name", ""),
+                "rrf_score": round(doc.get("rrf_score", 0), 4),
+                "modality": doc.get("modality", "text"),
+            }
+            for doc in all_retrieved
+        ]
+
         return {
             "answer": result["answer"],
             "sources": result["sources"],
             "pipeline_trace": result["pipeline_trace"],
+            "hyde_document": result.get("hyde_document", ""),
+            "expanded_queries": result.get("expanded_queries", []),
+            "rrf_results": rrf_results,
         }
 
     def check_llm_connection(self) -> bool:

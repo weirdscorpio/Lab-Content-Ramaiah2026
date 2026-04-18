@@ -182,7 +182,10 @@ def api_chat_stream():
     def _generate():
         result = _rag_pipeline.run(query)
 
-        # 1. Pipeline trace
+        # 1. Pipeline internals (HyDE doc, expanded queries, RRF scores)
+        yield f"data: {json.dumps({'type': 'pipeline_details', 'hyde_document': result['hyde_document'], 'expanded_queries': result['expanded_queries'], 'rrf_results': result['rrf_results']})}\n\n"
+
+        # 2. Pipeline trace
         yield f"data: {json.dumps({'type': 'trace', 'steps': result['pipeline_trace']})}\n\n"
 
         # 2. Stream answer tokens
