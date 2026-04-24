@@ -1,0 +1,2 @@
+Model used: all-MiniLM-L6-v2 (384 dimensions)
+Key Learning: Real embeddings capture semantic meaning

@@ -1,0 +1,4 @@
+completed: Similarity Search
+Documents indexed: 6
+Queries tested: 6
+Key Learning: Cosine similarity enables semantic search

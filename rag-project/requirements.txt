@@ -1,0 +1,12 @@
+# Core RAG Pipeline Requirements
+chromadb>=0.4.15
+sentence-transformers>=2.2.2
+requests>=2.31.0
+pathlib
+
+# Optional: For enhanced document processing
+nltk>=3.8
+numpy>=1.24.0
+
+# For testing and development
+pytest>=7.4.0

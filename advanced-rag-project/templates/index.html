@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Advanced Multimodal RAG</title>
+  <link rel="stylesheet" href="/static/css/style.css" />
+</head>
+<body>
+
+<!-- ── Top bar ── -->
+<header class="topbar">
+  <div class="topbar-left">
+    <span class="logo">Advanced Multimodal RAG</span>
+    <span class="badge-model" id="modelBadge">Loading…</span>
+  </div>
+  <div class="topbar-right">
+    <span class="status-dot" id="statusDot"></span>
+    <span class="status-label" id="statusLabel">Connecting</span>
+  </div>
+</header>
+
+<!-- ── Main layout ── -->
+<div class="layout">
+
+  <!-- ── Left panel: knowledge base ── -->
+  <aside class="sidebar">
+
+    <!-- Upload -->
+    <section class="panel">
+      <h3 class="panel-title">Upload to Knowledge Base</h3>
+      <div class="drop-zone" id="dropZone">
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        <p>Drag & drop or <label class="file-label" for="fileInput">browse</label></p>
+        <p class="hint">PDF, Markdown, TXT, JPG, PNG, WEBP</p>
+        <input type="file" id="fileInput" accept=".pdf,.md,.txt,.jpg,.jpeg,.png,.webp,.bmp" hidden />
+      </div>
+      <div id="uploadStatus" class="upload-status hidden"></div>
+    </section>
+
+    <!-- Stats -->
+    <section class="panel">
+      <h3 class="panel-title">Knowledge Base</h3>
+      <div class="stat-row">
+        <span class="stat-icon text-icon">T</span>
+        <div>
+          <span class="stat-value" id="statText">—</span>
+          <span class="stat-label">text chunks</span>
+        </div>
+      </div>
+      <div class="stat-row">
+        <span class="stat-icon img-icon">I</span>
+        <div>
+          <span class="stat-value" id="statImages">—</span>
+          <span class="stat-label">images indexed</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- File list -->
+    <section class="panel">
+      <h3 class="panel-title">Indexed Files</h3>
+      <ul class="file-list" id="docList">
+        <li class="file-item placeholder">Loading…</li>
+      </ul>
+    </section>
+
+    <!-- Pipeline legend -->
+    <section class="panel">
+      <h3 class="panel-title">Pipeline Techniques</h3>
+      <div class="technique-list">
+        <div class="technique"><span class="t-badge t1">HyDE</span> Hypothetical doc embedding</div>
+        <div class="technique"><span class="t-badge t2">MQ</span> Multi-query expansion</div>
+        <div class="technique"><span class="t-badge t3">RRF</span> Rank fusion</div>
+        <div class="technique"><span class="t-badge t4">CE</span> Cross-encoder rerank</div>
+        <div class="technique"><span class="t-badge t5">CC</span> Contextual compression</div>
+      </div>
+    </section>
+
+  </aside>
+
+  <!-- ── Right panel: chat ── -->
+  <main class="chat-area">
+
+    <div class="messages" id="messages">
+      <div class="message assistant-msg">
+        <div class="msg-bubble">
+          <strong>Advanced Multimodal RAG</strong> is ready.<br><br>
+          Ask anything about your documents or images. The pipeline uses
+          <em>HyDE, multi-query expansion, RRF fusion, cross-encoder reranking,</em>
+          and <em>contextual compression</em> to retrieve the best answer.
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline trace bar -->
+    <div class="trace-bar hidden" id="traceBar">
+      <span class="trace-label">Pipeline:</span>
+      <span id="traceSteps"></span>
+    </div>
+
+    <!-- Input row -->
+    <div class="input-row">
+      <textarea
+        id="queryInput"
+        placeholder="Ask a question about your documents…"
+        rows="1"
+      ></textarea>
+      <button id="sendBtn" class="send-btn" title="Send (Enter)">
+        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+
+  </main>
+</div>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
