@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Movie Agent – LangGraph Explorer</title>
+<style>
+:root {
+  --bg: #080b14; --surface: #0f1320; --surface2: #171d2e; --surface3: #1e2640;
+  --border: #252e48; --text: #e2e8f8; --muted: #7880a0;
+  --accent: #6366f1; --accent2: #38bdf8; --accent3: #a78bfa;
+  --green: #34d399; --red: #f87171; --yellow: #fbbf24; --orange: #fb923c;
+  --agent-color: #6366f1; --tools-color: #f59e0b; --start-color: #34d399; --end-color: #f87171;
+  --font: "Inter", system-ui, sans-serif; --mono: "Fira Code", monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── header ── */
+header { display: flex; align-items: center; gap: 14px; padding: 12px 22px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.logo { width: 36px; height: 36px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 17px; flex-shrink: 0; }
+.header-text h1 { font-size: 16px; font-weight: 700; }
+.header-text p { font-size: 11px; color: var(--muted); margin-top: 1px; }
+.pill { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--muted); background: var(--surface2); padding: 4px 11px; border-radius: 20px; border: 1px solid var(--border); }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); transition: background .3s; }
+.dot.ok { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.dot.err { background: var(--red); }
+
+/* ── layout ── */
+.layout { display: flex; flex: 1; min-height: 0; }
+
+/* ── graph panel ── */
+.graph-panel { width: 280px; background: var(--surface); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden; }
+.panel-section { padding: 12px 14px; border-bottom: 1px solid var(--border); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+
+.graph-svg-wrap { padding: 12px 0; display: flex; justify-content: center; border-bottom: 1px solid var(--border); }
+
+/* SVG node/edge styles */
+.node-rect { fill: var(--surface2); stroke: var(--border); stroke-width: 1.5; rx: 10; transition: all .3s; }
+.node-rect.active { stroke-width: 2; filter: drop-shadow(0 0 8px currentColor); }
+#agent-rect.active { stroke: var(--agent-color); fill: #1a1560; filter: drop-shadow(0 0 10px var(--agent-color)); }
+#tools-rect.active { stroke: var(--tools-color); fill: #1a1200; filter: drop-shadow(0 0 10px var(--tools-color)); }
+.node-title { font-family: var(--font); font-size: 10px; font-weight: 700; fill: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.node-label { font-family: var(--font); font-size: 12px; font-weight: 600; fill: var(--text); }
+.node-sublabel { font-family: var(--mono); font-size: 9px; fill: var(--muted); }
+#agent-title { fill: var(--agent-color); }
+#tools-title { fill: var(--tools-color); }
+
+.edge { stroke: var(--border); stroke-width: 1.5; fill: none; }
+.edge.active { stroke-dasharray: 6 3; animation: flow .5s linear infinite; }
+.edge-main.active { stroke: var(--agent-color); }
+.edge-loop.active { stroke: var(--tools-color); }
+.edge-end.active { stroke: var(--green); }
+@keyframes flow { from { stroke-dashoffset: 9; } to { stroke-dashoffset: 0; } }
+
+.arrowhead { fill: var(--border); transition: fill .3s; }
+.arrowhead-agent.active { fill: var(--agent-color); }
+.arrowhead-tools.active { fill: var(--tools-color); }
+.arrowhead-end.active { fill: var(--green); }
+
+.start-circle { fill: var(--start-color); }
+.end-circle { fill: none; stroke: var(--red); stroke-width: 2; }
+.end-circle-inner { fill: var(--red); }
+
+/* node pulse animation */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .6; }
+}
+.node-group.active .node-rect { animation: pulse .9s ease infinite; }
+
+/* edge label */
+.edge-label { font-family: var(--font); font-size: 9px; fill: var(--muted); }
+
+/* execution log */
+.exec-log { flex: 1; overflow-y: auto; padding: 8px 12px; }
+.exec-log::-webkit-scrollbar { width: 3px; }
+.exec-log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.log-entry { display: flex; align-items: flex-start; gap: 6px; padding: 4px 0; font-size: 11px; color: var(--muted); border-bottom: 1px solid var(--border)22; animation: fadeIn .2s ease; }
+@keyframes fadeIn { from { opacity:0; transform:translateX(-4px); } to { opacity:1; transform:translateX(0); } }
+.log-icon { font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+.log-text { line-height: 1.4; }
+.log-text strong { color: var(--text); }
+
+/* schema sidebar (bottom of left panel) */
+.schema-scroll { flex: 1; overflow-y: auto; padding: 8px 10px; min-height: 0; }
+.schema-scroll::-webkit-scrollbar { width: 3px; }
+.schema-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+.table-block { margin-bottom: 12px; }
+.table-name { font-size: 11px; font-weight: 600; color: var(--accent2); padding: 3px 6px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.table-name:hover { background: var(--surface2); }
+.table-name .arr { font-size: 8px; color: var(--muted); transition: transform .2s; }
+.table-name.open .arr { transform: rotate(90deg); }
+.col-list { display: none; padding-left: 10px; margin-top: 3px; }
+.col-list.open { display: block; }
+.col-row { display: flex; align-items: center; gap: 5px; padding: 2px 3px; font-size: 10px; color: var(--muted); }
+.col-row .cn { color: var(--text); font-family: var(--mono); font-size: 10px; }
+.col-row .ct { font-size: 9px; background: var(--surface2); padding: 1px 4px; border-radius: 3px; border: 1px solid var(--border); }
+.col-row .pk { color: var(--yellow); border-color: var(--yellow)66; }
+.suggestions { padding: 10px; border-top: 1px solid var(--border); }
+.sug-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin-bottom: 6px; }
+.sug-btn { display: block; width: 100%; background: none; border: 1px solid transparent; color: var(--muted); font-family: var(--font); font-size: 11px; text-align: left; cursor: pointer; padding: 6px 8px; border-radius: 6px; margin-bottom: 3px; line-height: 1.4; transition: all .15s; }
+.sug-btn:hover { background: var(--surface2); border-color: var(--border); color: var(--accent2); }
+
+/* ── chat panel ── */
+.chat-panel { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.messages { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.messages::-webkit-scrollbar { width: 4px; }
+.messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* welcome */
+.welcome { margin: auto; text-align: center; max-width: 440px; padding: 40px 20px; }
+.welcome-icon { font-size: 52px; margin-bottom: 18px; }
+.welcome h2 { font-size: 22px; font-weight: 800; margin-bottom: 10px; background: linear-gradient(135deg, var(--accent2), var(--accent3)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.welcome p { font-size: 13px; color: var(--muted); line-height: 1.7; }
+.welcome-tags { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 18px; }
+.welcome-tag { background: var(--surface2); border: 1px solid var(--border); color: var(--muted); font-size: 11px; padding: 4px 10px; border-radius: 20px; cursor: pointer; transition: all .15s; }
+.welcome-tag:hover { border-color: var(--accent); color: var(--accent2); }
+
+/* messages */
+.msg { display: flex; gap: 10px; max-width: 820px; animation: msgIn .2s ease; }
+.msg.user { margin-left: auto; flex-direction: row-reverse; }
+@keyframes msgIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
+.av { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; margin-top: 2px; }
+.av.ai { background: linear-gradient(135deg, var(--accent), var(--accent3)); }
+.av.user { background: var(--surface3); border: 1px solid var(--border); font-size: 12px; color: var(--muted); font-weight: 700; }
+.bubble { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; font-size: 13px; line-height: 1.75; max-width: 660px; }
+.msg.user .bubble { background: var(--surface2); border-color: var(--accent)66; }
+
+/* markdown */
+.bubble h1, .bubble h2, .bubble h3 { font-size: 14px; font-weight: 700; color: var(--accent2); margin: 14px 0 5px; }
+.bubble h1:first-child, .bubble h2:first-child, .bubble h3:first-child { margin-top: 0; }
+.bubble p { margin-bottom: 8px; }
+.bubble p:last-child { margin-bottom: 0; }
+.bubble ul, .bubble ol { padding-left: 20px; margin-bottom: 8px; }
+.bubble li { margin-bottom: 4px; }
+.bubble strong { color: var(--accent2); font-weight: 600; }
+.bubble em { color: var(--accent3); }
+.bubble code { background: #0a0d18; padding: 2px 6px; border-radius: 4px; font-family: var(--mono); font-size: 11px; color: #7dd3a8; border: 1px solid var(--border); }
+.bubble pre { background: #0a0d18; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin: 10px 0; overflow-x: auto; }
+.bubble pre code { background: none; border: none; padding: 0; font-size: 12px; color: #c4d0f5; }
+.bubble blockquote { border-left: 3px solid var(--accent); padding-left: 12px; color: var(--muted); margin: 8px 0; }
+
+/* tool cards */
+.tool-card { display: flex; gap: 10px; max-width: 820px; animation: msgIn .2s ease; }
+.tool-av { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; margin-top: 2px; background: var(--surface3); border: 1px solid var(--yellow)44; }
+.tool-inner { background: var(--surface); border: 1px solid var(--yellow)33; border-radius: 12px; padding: 10px 14px; font-size: 12px; flex: 1; max-width: 660px; }
+.tool-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.tool-badge { background: var(--yellow)15; color: var(--yellow); border: 1px solid var(--yellow)40; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.tool-name { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text); }
+.tool-args-label, .tool-result-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+.tool-args { font-family: var(--mono); font-size: 11px; color: var(--muted); background: #0a0d18; border-radius: 5px; padding: 6px 8px; white-space: pre-wrap; word-break: break-all; margin-bottom: 6px; }
+.tool-result-label { margin-top: 8px; color: var(--green)aa; }
+.tool-result { font-family: var(--mono); font-size: 11px; color: var(--green); background: #0a0d18; border-radius: 5px; padding: 6px 8px; max-height: 140px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; }
+
+/* typing */
+.typing .bubble { display: flex; align-items: center; gap: 5px; padding: 14px 16px; }
+.tdot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: bounce 1.3s ease infinite; }
+.tdot:nth-child(2) { animation-delay: .2s; }
+.tdot:nth-child(3) { animation-delay: .4s; }
+@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+
+/* ── input ── */
+.input-bar { padding: 14px 20px; background: var(--surface); border-top: 1px solid var(--border); flex-shrink: 0; }
+.input-wrap { display: flex; gap: 8px; align-items: flex-end; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 9px 13px; transition: border-color .2s; }
+.input-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent)15; }
+textarea { flex: 1; background: none; border: none; outline: none; color: var(--text); font-family: var(--font); font-size: 13px; resize: none; min-height: 22px; max-height: 120px; line-height: 1.5; }
+textarea::placeholder { color: var(--muted); }
+.send-btn { width: 32px; height: 32px; background: var(--accent); border: none; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0; transition: all .15s; }
+.send-btn:hover { background: var(--accent3); transform: scale(1.05); }
+.send-btn:disabled { background: var(--surface3); color: var(--muted); cursor: not-allowed; transform: none; }
+.send-btn svg { width: 14px; height: 14px; }
+.hint { margin-top: 7px; font-size: 10px; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">🎬</div>
+  <div class="header-text">
+    <h1>Movie Agent – LangGraph Explorer</h1>
+    <p>Multi-step SQL reasoning &nbsp;·&nbsp; llama3.2:3b via Ollama &nbsp;·&nbsp; runs 100% locally</p>
+  </div>
+  <div class="pill">
+    <div class="dot" id="dot"></div>
+    <span id="status-text">connecting…</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── Graph Panel ── -->
+  <aside class="graph-panel">
+    <div class="panel-section">LangGraph Execution</div>
+
+    <div class="graph-svg-wrap">
+      <svg id="graph-svg" viewBox="0 0 200 380" width="200" height="380" xmlns="http://www.w3.org/2000/svg">
+        <!-- Defs -->
+        <defs>
+          <marker id="arr-main" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" class="arrowhead arrowhead-agent" id="arr-main-poly"/>
+          </marker>
+          <marker id="arr-loop" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" class="arrowhead arrowhead-tools" id="arr-loop-poly"/>
+          </marker>
+          <marker id="arr-end" markerWidth="8" markerHeight="6" refX="6" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" class="arrowhead arrowhead-end" id="arr-end-poly"/>
+          </marker>
+        </defs>
+
+        <!-- START -->
+        <g id="start-group">
+          <circle cx="100" cy="22" r="10" class="start-circle" opacity=".9"/>
+          <text x="100" y="26.5" text-anchor="middle" font-family="Inter,sans-serif" font-size="9" font-weight="700" fill="#080b14">S</text>
+          <text x="116" y="26" font-family="Inter,sans-serif" font-size="9" fill="#34d399" font-weight="600">START</text>
+        </g>
+
+        <!-- START → AGENT edge -->
+        <line id="edge-start" x1="100" y1="32" x2="100" y2="72" stroke="#252e48" stroke-width="1.5" marker-end="url(#arr-main)"/>
+
+        <!-- AGENT node -->
+        <g id="agent-group" class="node-group">
+          <rect id="agent-rect" x="18" y="76" width="164" height="68" rx="10" class="node-rect"/>
+          <text x="100" y="97" text-anchor="middle" class="node-title" id="agent-title">AGENT NODE</text>
+          <text x="100" y="114" text-anchor="middle" class="node-label">🧠 LLM</text>
+          <text x="100" y="129" text-anchor="middle" class="node-sublabel">ChatOllama · llama3.2:3b</text>
+        </g>
+
+        <!-- AGENT → TOOLS edge (down) -->
+        <line id="edge-down" x1="100" y1="144" x2="100" y2="188" stroke="#252e48" stroke-width="1.5" marker-end="url(#arr-main)" stroke-dasharray="none"/>
+        <text x="106" y="172" class="edge-label">tool calls</text>
+
+        <!-- TOOLS node -->
+        <g id="tools-group" class="node-group">
+          <rect id="tools-rect" x="18" y="192" width="164" height="68" rx="10" class="node-rect"/>
+          <text x="100" y="213" text-anchor="middle" class="node-title" id="tools-title">TOOLS NODE</text>
+          <text x="100" y="230" text-anchor="middle" class="node-label">🔧 ToolNode</text>
+          <text x="100" y="245" text-anchor="middle" class="node-sublabel">search · calculate · list</text>
+        </g>
+
+        <!-- TOOLS → AGENT loop (right curved) -->
+        <path id="edge-loop" d="M 182,226 C 220,226 220,110 182,110" stroke="#252e48" stroke-width="1.5" fill="none" marker-end="url(#arr-loop)"/>
+        <text x="190" y="176" class="edge-label" text-anchor="middle" transform="rotate(90,190,176)">loop</text>
+
+        <!-- AGENT → END edge (left curved, conditional "done") -->
+        <path id="edge-end" d="M 18,110 C -22,110 -22,320 18,320" stroke="#252e48" stroke-width="1.5" fill="none" stroke-dasharray="4 3" marker-end="url(#arr-end)"/>
+        <text x="4" y="176" class="edge-label" text-anchor="middle" transform="rotate(-90,4,176)" fill="#34d399aa">done</text>
+
+        <!-- END -->
+        <g id="end-group">
+          <circle cx="100" cy="326" r="10" class="end-circle"/>
+          <circle cx="100" cy="326" r="5" class="end-circle-inner"/>
+          <text x="116" y="330" font-family="Inter,sans-serif" font-size="9" fill="#f87171" font-weight="600">END</text>
+        </g>
+
+        <!-- Conditional label -->
+        <text x="100" y="175" text-anchor="middle" class="edge-label" fill="#6366f155">▼ if tool_calls</text>
+      </svg>
+    </div>
+
+    <!-- Execution Log -->
+    <div class="panel-section">Execution Log</div>
+    <div class="exec-log" id="exec-log">
+      <div class="log-entry" style="color:var(--muted);font-size:11px;padding:6px 0">Waiting for a query…</div>
+    </div>
+
+    <!-- DB Schema -->
+    <div class="panel-section">Database Schema</div>
+    <div class="schema-scroll" id="schema-panel">
+      <span style="font-size:11px;color:var(--muted)">loading…</span>
+    </div>
+
+    <!-- Suggestions -->
+    <div class="suggestions">
+      <div class="sug-label">Try asking</div>
+      <button class="sug-btn" onclick="ask(this)">What movies did Christopher Nolan direct?</button>
+      <button class="sug-btn" onclick="ask(this)">Which actor has appeared in the most movies?</button>
+      <button class="sug-btn" onclick="ask(this)">Find all Sci-Fi movies and sort by rating</button>
+      <button class="sug-btn" onclick="ask(this)">Compare avg ratings: Nolan vs Villeneuve</button>
+      <button class="sug-btn" onclick="ask(this)">Add a review: Inception is a masterpiece, 10/10</button>
+    </div>
+  </aside>
+
+  <!-- ── Chat Panel ── -->
+  <div class="chat-panel">
+    <div class="messages" id="messages">
+      <div class="welcome" id="welcome">
+        <div class="welcome-icon">🎬</div>
+        <h2>Watch an Agent Reason</h2>
+        <p>Ask anything about the movie database. The agent uses LangGraph to plan multi-step SQL queries — watch the graph on the left light up as it works.</p>
+        <div class="welcome-tags">
+          <span class="welcome-tag" onclick="send('What movies did Christopher Nolan direct?')">Nolan films</span>
+          <span class="welcome-tag" onclick="send('Which actors appeared in both Sci-Fi and Crime movies?')">Cross-genre actors</span>
+          <span class="welcome-tag" onclick="send('What is the highest rated movie in the database?')">Top rated</span>
+          <span class="welcome-tag" onclick="send('Show me all reviews with their movie titles')">Reviews</span>
+          <span class="welcome-tag" onclick="send('Which director had the highest average box office?')">Box office</span>
+          <span class="welcome-tag" onclick="send('Find movies where Leonardo DiCaprio and a Canadian director worked together')">DiCaprio + Canada</span>
+        </div>
+      </div>
+    </div>
+    <div class="input-bar">
+      <div class="input-wrap">
+        <textarea id="inp" placeholder="Ask about movies, directors, actors, ratings, box office…" rows="1"
+          onkeydown="onKey(event)" oninput="resize(this)"></textarea>
+        <button class="send-btn" id="send-btn" onclick="send()" title="Send">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+      <div class="hint">Enter to send &nbsp;·&nbsp; Shift+Enter for newline &nbsp;·&nbsp; Everything runs locally</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── markdown ──────────────────────────────────────────────────────────────
+function md(text) {
+  return text
+    .replace(/```(\w*)\n?([\s\S]*?)```/g, (_, l, c) => `<pre><code>${esc(c.trim())}</code></pre>`)
+    .replace(/`([^`\n]+)`/g, (_, c) => `<code>${esc(c)}</code>`)
+    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+    .replace(/^\> (.+)$/gm, '<blockquote>$1</blockquote>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/((?:^- .+\n?)+)/gm, b => `<ul>${b.trim().split('\n').map(l=>`<li>${l.slice(2)}</li>`).join('')}</ul>`)
+    .replace(/((?:^\d+\. .+\n?)+)/gm, b => `<ol>${b.trim().split('\n').map(l=>`<li>${l.replace(/^\d+\. /,'')}</li>`).join('')}</ol>`)
+    .replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>');
+}
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── graph state ───────────────────────────────────────────────────────────
+const nodeIds = { agent: 'agent-group', tools: 'tools-group' };
+const edgeFlow = {
+  agent: ['edge-start', 'edge-down'],
+  tools: ['edge-loop'],
+};
+
+function setNodeActive(node, on) {
+  const el = document.getElementById(nodeIds[node]);
+  if (!el) return;
+  el.classList.toggle('active', on);
+  const rect = document.getElementById(node + '-rect');
+  if (rect) rect.classList.toggle('active', on);
+}
+
+function setEdgeActive(edgeId, on) {
+  const el = document.getElementById(edgeId);
+  if (!el) return;
+  el.classList.toggle('active', on);
+  if (on) {
+    const cls = edgeId === 'edge-loop' ? 'edge-loop' : edgeId === 'edge-end' ? 'edge-end' : 'edge-main';
+    el.classList.add('edge', cls);
+  }
+}
+
+function activateEdgesForNode(node) {
+  (edgeFlow[node] || []).forEach(e => setEdgeActive(e, true));
+}
+function deactivateAllEdges() {
+  ['edge-start','edge-down','edge-loop','edge-end'].forEach(e => setEdgeActive(e, false));
+}
+function deactivateAllNodes() {
+  ['agent','tools'].forEach(n => setNodeActive(n, false));
+}
+
+// ── execution log ─────────────────────────────────────────────────────────
+function clearLog() {
+  document.getElementById('exec-log').innerHTML = '';
+}
+function logEntry(icon, html) {
+  const log = document.getElementById('exec-log');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="log-icon">${icon}</span><span class="log-text">${html}</span>`;
+  log.appendChild(entry);
+  log.scrollTop = log.scrollHeight;
+}
+
+// ── status check ──────────────────────────────────────────────────────────
+async function checkHealth() {
+  try {
+    const d = await fetch('/api/health').then(r => r.json());
+    const dot = document.getElementById('dot');
+    const txt = document.getElementById('status-text');
+    if (d.ollama === 'ok') {
+      dot.className = 'dot ok';
+      txt.textContent = d.models[0] || 'ollama ready';
+    } else {
+      dot.className = 'dot err'; txt.textContent = 'ollama offline';
+      setTimeout(checkHealth, 6000);
+    }
+  } catch {
+    document.getElementById('dot').className = 'dot err';
+    document.getElementById('status-text').textContent = 'unreachable';
+    setTimeout(checkHealth, 6000);
+  }
+}
+checkHealth();
+
+// ── schema sidebar ────────────────────────────────────────────────────────
+async function loadSchema() {
+  try {
+    const schema = await fetch('/api/schema').then(r => r.json());
+    const panel = document.getElementById('schema-panel');
+    panel.innerHTML = '';
+    for (const [table, cols] of Object.entries(schema)) {
+      const block = document.createElement('div'); block.className = 'table-block';
+      const head = document.createElement('div'); head.className = 'table-name';
+      head.innerHTML = `<span class="arr">▶</span>${table}`;
+      head.onclick = () => { head.classList.toggle('open'); list.classList.toggle('open'); };
+      const list = document.createElement('div'); list.className = 'col-list';
+      for (const col of cols) {
+        const row = document.createElement('div'); row.className = 'col-row';
+        row.innerHTML = `<span class="cn">${col.name}</span><span class="ct ${col.pk ? 'pk' : ''}">${col.type || 'TEXT'}</span>`;
+        list.appendChild(row);
+      }
+      block.appendChild(head); block.appendChild(list);
+      panel.appendChild(block);
+    }
+  } catch(e) {
+    document.getElementById('schema-panel').innerHTML = `<span style="font-size:11px;color:var(--red)">${e.message}</span>`;
+  }
+}
+loadSchema();
+
+// ── DOM helpers ───────────────────────────────────────────────────────────
+const $msgs = () => document.getElementById('messages');
+const scroll = () => { const m = $msgs(); m.scrollTop = m.scrollHeight; };
+
+function removeWelcome() {
+  document.getElementById('welcome')?.remove();
+}
+
+function addUserMsg(text) {
+  const m = document.createElement('div');
+  m.className = 'msg user';
+  m.innerHTML = `<div class="av user">U</div><div class="bubble">${esc(text)}</div>`;
+  $msgs().appendChild(m); scroll();
+}
+
+function addTyping() {
+  const m = document.createElement('div');
+  m.className = 'msg typing'; m.id = 'typing';
+  m.innerHTML = `<div class="av ai">🤖</div><div class="bubble"><div class="tdot"></div><div class="tdot"></div><div class="tdot"></div></div>`;
+  $msgs().appendChild(m); scroll();
+}
+function removeTyping() { document.getElementById('typing')?.remove(); }
+
+function addAiMsg() {
+  const m = document.createElement('div');
+  m.className = 'msg';
+  const bub = document.createElement('div'); bub.className = 'bubble';
+  m.innerHTML = `<div class="av ai">🤖</div>`;
+  m.appendChild(bub);
+  $msgs().appendChild(m); scroll();
+  return bub;
+}
+
+function addToolCard(name, args) {
+  const id = `tc-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const argsStr = typeof args === 'object' ? JSON.stringify(args, null, 2) : String(args);
+  const m = document.createElement('div');
+  m.className = 'tool-card'; m.id = id;
+  m.innerHTML = `
+    <div class="tool-av">⚙️</div>
+    <div class="tool-inner">
+      <div class="tool-header">
+        <span class="tool-badge">tool call</span>
+        <span class="tool-name">${esc(name)}</span>
+      </div>
+      <div class="tool-args-label">arguments</div>
+      <div class="tool-args">${esc(argsStr)}</div>
+    </div>`;
+  $msgs().appendChild(m); scroll();
+  return id;
+}
+
+function updateToolCard(id, result) {
+  const inner = document.getElementById(id)?.querySelector('.tool-inner');
+  if (!inner) return;
+  const label = document.createElement('div'); label.className = 'tool-result-label'; label.textContent = 'result';
+  const res = document.createElement('div'); res.className = 'tool-result';
+  try { res.textContent = JSON.stringify(JSON.parse(result), null, 2); }
+  catch { res.textContent = result; }
+  inner.appendChild(label); inner.appendChild(res); scroll();
+}
+
+// ── send ──────────────────────────────────────────────────────────────────
+let busy = false;
+
+async function send(text) {
+  const inp = document.getElementById('inp');
+  const msg = (text || inp.value).trim();
+  if (!msg || busy) return;
+
+  removeWelcome();
+  inp.value = ''; inp.style.height = 'auto';
+  addUserMsg(msg);
+  busy = true;
+  document.getElementById('send-btn').disabled = true;
+
+  clearLog();
+  deactivateAllNodes(); deactivateAllEdges();
+  logEntry('▶', 'Starting agent run…');
+
+  addTyping();
+
+  const resp = await fetch('/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message: msg }),
+  });
+
+  removeTyping();
+
+  const reader = resp.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '', bub = null, full = '';
+  const toolCards = {};
+
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lines = buf.split('\n'); buf = lines.pop();
+
+    for (const line of lines) {
+      if (!line.startsWith('data: ')) continue;
+      const raw = line.slice(6).trim();
+      if (raw === '[DONE]') { break; }
+      try {
+        const ev = JSON.parse(raw);
+
+        if (ev.type === 'node_start') {
+          deactivateAllEdges();
+          setNodeActive(ev.node, true);
+          activateEdgesForNode(ev.node);
+          const icon = ev.node === 'agent' ? '🧠' : '🔧';
+          logEntry(icon, `Node <strong>${ev.node.toUpperCase()}</strong> started`);
+        }
+        else if (ev.type === 'node_end') {
+          setNodeActive(ev.node, false);
+          logEntry('✓', `Node <strong>${ev.node.toUpperCase()}</strong> finished`);
+          if (ev.node === 'agent') {
+            // if going to end, briefly animate end edge
+            setTimeout(() => setEdgeActive('edge-end', true), 100);
+          }
+        }
+        else if (ev.type === 'tool_call') {
+          logEntry('⚙️', `Tool: <strong>${esc(ev.name)}</strong>`);
+          const id = addToolCard(ev.name, ev.args);
+          toolCards[ev.name] = id;
+        }
+        else if (ev.type === 'tool_result') {
+          updateToolCard(toolCards[ev.name], ev.result);
+          logEntry('✅', `<strong>${esc(ev.name)}</strong> returned result`);
+        }
+        else if (ev.type === 'token') {
+          if (!bub) { bub = addAiMsg(); }
+          full += ev.content;
+          bub.innerHTML = `<p>${md(full)}</p>`;
+          scroll();
+        }
+        else if (ev.type === 'error') {
+          if (!bub) bub = addAiMsg();
+          bub.innerHTML = `<p style="color:var(--red)">${esc(ev.message)}</p>`;
+          logEntry('❌', `Error: ${esc(ev.message)}`);
+        }
+      } catch {}
+    }
+  }
+
+  deactivateAllNodes(); deactivateAllEdges();
+  logEntry('⬛', 'Run complete');
+  busy = false;
+  document.getElementById('send-btn').disabled = false;
+  document.getElementById('inp').focus();
+}
+
+function ask(el) { send(el.textContent.trim()); }
+function onKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }
+function resize(el) { el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
+</script>
+</body>
+</html>
